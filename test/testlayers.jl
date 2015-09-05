@@ -158,7 +158,7 @@ function iseq03(a,b)
 end
 
 function filetest(net1)
-    isa(net1[1], Pool) && (warn("Pooling layers cannot be saved to file yet"); return true)
+    (isa(net1[1],Pool) || isa(net1[1],Pool5)) && (warn("Pooling layers cannot be saved to file yet"); return true)
     KUnet.savenet("/tmp/kunet.test", net1)
     net2 = KUnet.loadnet("/tmp/kunet.test")
     return all(map(iseq03, net1, net2))
@@ -170,10 +170,13 @@ function getnet{T<:Layer}(F,S,L::Type{T})
     (nf>20) && in(L,(Logp,Soft,LogpLoss,SoftLoss,XentLoss)) && return nothing
     (nd!=4) && in(L,(Conv,Pool)) && return nothing
     C = (nd==1 ? S[1] : S[nd-1])
-    l = ((L == Conv) ? Conv(rand(1:20), rand(1:min(S[1],S[2]))) :
+    l = ((L == Conv) ? Conv(rand(1:20), rand(1:minimum(S[1:end-2]))) :
+         (L == Conv5) ? Conv5(rand(1:20), rand(1:minimum(S[1:end-2]))) :
          (L == Drop) ? Drop(rand()) :
          (L == Mmul) ? Mmul(rand(1:20)) :
-         (L == Pool) ? Pool(rand(1:minimum(S))) : L())
+         (L == Pool) ? Pool(rand(1:minimum(S))) : 
+         (L == Pool5) ? Pool5(rand(1:minimum(S))) : 
+         L())
     net = Layer[]; push!(net, l)
     return (isa(l, Logp) ? push!(net, LogpLoss()) :
             isa(l, Soft) ? push!(net, SoftLoss()) :
@@ -196,10 +199,11 @@ function getz(net, x)
 end
 
 function gettest(F,S,L)
-    net = getnet(F,S,L)
-    x = getx(F,S,L)
-    z = getz(net, x)
-    return (net, x, z)
+    global net0, x0, z0
+    net0 = getnet(F,S,L)
+    x0 = getx(F,S,L)
+    z0 = getz(net0, x0)
+    return (net0, x0, z0)
 end
 
 function shownet(n::Net)
@@ -225,15 +229,15 @@ function showlayer(l::Layer)
 end
 
 function main(layers)
-    global net0, x0, z0
     KUnet.gpu(false)
-    for F in (Float32,Float64)
-        for D in 1:5
+#    for F in (Float64,Float32)
+    for F in (Float64,)
+#        for D in 1:5
+        for D in 4:5
             S = tuple(rand(1:20,D)...)
             for L in layers
                 (net, x, z) = gettest(F,S,L)
                 net==nothing && continue  # combination not supported
-                net0, x0, z0 = net, x, z
                 @show (F, S, L)
                 KUnet.GPU && (@test gputest(net, x, z))
                 gradtest(net, x, z)
@@ -244,9 +248,10 @@ function main(layers)
 end
 
 # Test each layer for: 1D-5D, gpu/cpu, float32/float64
-layers = (Bias, Conv, Drop, Logp, LogpLoss, Mmul, PercLoss, Pool, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh, XentLoss)
+layers = (Bias, Conv, Conv5, Drop, Logp, LogpLoss, Mmul, PercLoss, Pool, Pool5, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh, XentLoss)
 # These don't have cpu versions: Conv, Pool
 # layers = (Bias, Drop, Logp, LogpLoss, Mmul, PercLoss, QuadLoss, Relu, Sigm, Soft, SoftLoss, Tanh, XentLoss)
 # layers = (Conv,Pool)
+# layers = (Pool5,Pool,Conv5,Conv)
 main(layers)
 

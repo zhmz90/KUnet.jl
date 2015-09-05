@@ -26,9 +26,11 @@ include("update.jl");	export update, setparam!
 
 include("mmul.jl");     export Mmul
 include("bias.jl");	export Bias
+include("drop.jl");	export Drop
 include("conv.jl");	export Conv
 include("pool.jl");	export Pool
-include("drop.jl");	export Drop
+include("conv5.jl");	export Conv5
+include("pool5.jl");	export Pool5
 
 include("actf.jl");	export Logp, Relu, Sigm, Soft, Tanh
 include("loss.jl");	export QuadLoss, SoftLoss, LogpLoss, XentLoss, PercLoss, ScalLoss
